@@ -9,6 +9,11 @@ nvdstool
 Read / write NVDS data (that includes some basic configuration values, such as
 device address and name)
 
+nvdsparser
+----------
+Python class used for modification of NVDS file (parsing to python dict and
+dumping back again to NVDS format). No UI for now
+
 License
 -------
 MIT, unless stated otherwise
