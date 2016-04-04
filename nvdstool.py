@@ -131,6 +131,10 @@ class QNClient(object):
 
         return nvds_data
 
+    def reboot(self):
+        self.send_command(0x4a, '')
+        self.read_packet()
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description='NVDS tool for Quintic QN902x BLE SoC'
@@ -157,3 +161,5 @@ if __name__ == "__main__":
 
     elif args.write_fname:
         raise NotImplemented
+
+    client.reboot()
