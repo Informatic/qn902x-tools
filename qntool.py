@@ -37,11 +37,13 @@ logger = logging.getLogger(__name__)
 class QNClient(object):
     connect_baudrate = 9600
     baudrate = None
+    clock = None
     port = None
 
-    def __init__(self, port='/dev/ttyUSB0', baudrate=115200):
+    def __init__(self, port='/dev/ttyUSB0', baudrate=115200, clock=16000000):
         self.ser = serial.Serial(port)
         self.baudrate = baudrate
+        self.clock = clock
 
     def connect(self, timeout=10):
         """Does handshaking with bootloader"""
@@ -69,18 +71,25 @@ class QNClient(object):
 
         logger.info('Connected')
 
+        clock_reg = struct.pack('<L', self.calc_div(self.clock, self.baudrate))
+
         # This is special, don't touch this
-        self.ser.write('\x33')
-        self.send_command(0x34, '\x2c\x08\x00\x00')
+        self.send_command(0x34, clock_reg)  # '\x2c\x08\x00\x00')
         self.read_packet(True)
 
         self.ser.close()
         self.ser.baudrate = self.baudrate
         self.ser.timeout = 0.5
         self.ser.open()
-
-        self.send_command(0x34, '\x2c\x08\x00\x00')
+        self.send_command(0x34, clock_reg)
         self.read_packet(True)
+
+    def calc_div(self, clock, baudrate):
+        """Calculates UART register value to pass to bootloader"""
+        tmp = 16 * baudrate
+        inter_div = clock / tmp
+        frac_div = ((clock - inter_div * tmp) * 64 + tmp / 2) / tmp
+        return (inter_div << 8) + frac_div
 
     @classmethod
     def build_packet(self, cmd, data):
@@ -191,27 +200,32 @@ if __name__ == "__main__":
         description='Programming tool for Quintic QN902x BLE SoC'
         )
 
-    parser.add_argument('--port', dest='port', default='/dev/ttyUSB0')
-    parser.add_argument('--baudrate', dest='baudrate', default=115200)
+    parser.add_argument('--port', dest='port', default='/dev/ttyUSB0',
+                        help='programming port (default: ttyUSB0)')
+    parser.add_argument('--baudrate', dest='baudrate', type=int,
+                        default=115200,
+                        help='connection baudrate (default: 115200)')
+    parser.add_argument('--clock', dest='clock', type=int, default=16,
+                        help='SoC main clock in MHz (default: 16)')
 
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument('-R', '--read', dest='read_fname',
-                       help='Read NVDS data to file')
+                       help='read NVDS data to file')
     group.add_argument('-W', '--write', dest='write_fname',
-                       help='Write NVDS data from file')
+                       help='write NVDS data from file')
     group.add_argument('-P', '--program', dest='program_fname',
-                       help='Uploads application binary')
+                       help='upload application binary')
     parser.add_argument('-f', '--force', dest='force', action='store_true',
-                        help='Force write of possibly invalid data')
+                        help='force write of possibly invalid data')
     parser.add_argument('-v', '--verbose', dest='verbose', action='store_true',
-                        help='xD')
+                        help='show debug information')
 
     args = parser.parse_args()
 
     if args.verbose:
         logger.setLevel(logging.DEBUG)
 
-    client = QNClient(args.port, args.baudrate)
+    client = QNClient(args.port, args.baudrate, args.clock * 1000000)
     client.connect()
 
     if args.read_fname:
