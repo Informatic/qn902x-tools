@@ -182,8 +182,8 @@ class QNClient(object):
         self.send_command(0x3b, struct.pack('<L', address))
         return self.read_packet(True)
 
-    def sector_erase(self, sector):
-        self.send_command(0x42, struct.pack('<L', sector))
+    def sector_erase(self, sector_count):
+        self.send_command(0x42, struct.pack('<L', sector_count))
         return self.read_packet()
 
 if __name__ == "__main__":
@@ -199,7 +199,8 @@ if __name__ == "__main__":
                        help='Read NVDS data to file')
     group.add_argument('-W', '--write', dest='write_fname',
                        help='Write NVDS data from file')
-
+    group.add_argument('-P', '--program', dest='program_fname',
+                       help='Uploads application binary')
     parser.add_argument('-f', '--force', dest='force', action='store_true',
                         help='Force write of possibly invalid data')
     parser.add_argument('-v', '--verbose', dest='verbose', action='store_true',
@@ -240,5 +241,27 @@ if __name__ == "__main__":
                 client.program(nvds_data[n:n+256])
 
             logger.info('Finished.')
+
+    elif args.program_fname:
+        with open(args.program_fname, 'r') as fd:
+            program_data = fd.read()
+            logger.info('Erasing...')
+
+            # TODO: verification
+
+            client.set_program_address(0x1000)
+            client.sector_erase(0x0f)
+            client.set_program_address(0x1100)
+
+            # ?
+            client.send_command(0x4c, '\x00\x00\x00\x10')
+            client.read_packet()
+
+            client.send_command(0x4d, '\xd4\x00\x00\x10')
+            client.read_packet()
+
+            for n in range(0, len(program_data), 256):
+                logger.info('Programming... %.2f%%', 100.0*n/len(program_data))
+                client.program(program_data[n:n+256])
 
     client.reboot()

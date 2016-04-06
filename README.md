@@ -11,10 +11,10 @@ and `crc16` package. You can install all requirements by simply issuing:
 
     pip install -r requirements.txt
 
-nvdstool
+qntool
 --------
-Read / write NVDS data (that includes some basic configuration values, such as
-device address and name)
+Upload application binary or read / write NVDS data (that includes some basic
+configuration values, such as device address and name)
 
 nvdsparser
 ----------
